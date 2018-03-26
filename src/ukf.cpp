@@ -13,7 +13,7 @@ using std::vector;
  */
 UKF::UKF() {
   // if this is false, laser measurements will be ignored (except during init)
-  use_laser_ = false;
+  use_laser_ = true;
 
   // if this is false, radar measurements will be ignored (except during init)
   use_radar_ = true;
@@ -82,18 +82,18 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   if(!is_initialized_){
     if(meas_package.sensor_type_ == MeasurementPackage::LASER){
       double px = meas_package.raw_measurements_(0);
-      double py = meas_package.raw_measurements_(0);
+      double py = meas_package.raw_measurements_(1);
       x_ << px, py, 0.0, 0.0, 0.0;
-      P_ <<  1.0, 0, 0, 0, 0,
-            0, 1.0, 0, 0, 0,
+      P_ <<  std_laspx_*std_laspx_, 0, 0, 0, 0,
+            0, std_laspy_*std_laspy_, 0, 0, 0,
             0, 0, 1, 0, 0,
             0, 0, 0, 1, 0,
             0, 0, 0, 0, 1;
     }
     else if(meas_package.sensor_type_ == MeasurementPackage::RADAR){
       double rho = meas_package.raw_measurements_(0);
-      double phi = meas_package.raw_measurements_(0);
-      double rho_dot = meas_package.raw_measurements_(0);
+      double phi = meas_package.raw_measurements_(1);
+      double rho_dot = meas_package.raw_measurements_(2);
 
       double px = rho*cos(phi);
       double py = rho*sin(phi);
@@ -246,6 +246,69 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
+  int n_z = 2;
+
+  MatrixXd Zsig = MatrixXd(n_z, 2*n_aug_+1);
+  for(int i=0; i < 2*n_aug_+1; i++){
+    double px = Xsig_pred_(0,i);
+    double py = Xsig_pred_(1,i);
+    
+    // measurement model
+    Zsig(0,i)= px;
+    Zsig(1,i)= py;
+  }
+
+  //mean predicted measurement
+  VectorXd z_pred = VectorXd(n_z);
+  z_pred.fill(0.0);
+  for(int i=0; i<2*n_aug_+1; i++){
+    z_pred += weights_(i)*Zsig.col(i);
+  }
+
+  //innovation covariance matrix S
+  MatrixXd S = MatrixXd(n_z, n_z);
+  S.fill(0.0);
+  for(int i=0; i<2*n_aug_+1; i++){
+    //residual
+    VectorXd diff = Zsig.col(i) - z_pred;
+    S+= weights_(i)*diff*diff.transpose();
+  }
+
+  //add measurement noise covariance matrix
+  MatrixXd R = MatrixXd(n_z,n_z);
+  R <<    std_laspx_*std_laspx_, 0,
+          0, std_laspy_*std_laspy_;
+  
+  S += R;
+
+  VectorXd z = VectorXd(n_z);
+  z(0) = meas_package.raw_measurements_(0);
+  z(1) = meas_package.raw_measurements_(1);
+
+  //create matrix for cross correlation
+  MatrixXd Tc = MatrixXd(n_x_, n_z);
+  Tc.fill(0.0);
+
+  for(int i=0; i<2*n_aug_+1; i++){
+    VectorXd z_diff = Zsig.col(i) - z_pred;
+    
+    VectorXd x_diff = Xsig_pred_.col(i) - x_;
+
+    Tc += weights_(i)*x_diff*z_diff.transpose();
+  } 
+
+  MatrixXd K = Tc * S.inverse();
+
+  VectorXd y = z - z_pred;
+
+  //state update
+  x_ += K * y;
+
+  //Covariance Matrix update
+  P_ -= K*S*K.transpose();
+
+
+
 }
 
 /**
