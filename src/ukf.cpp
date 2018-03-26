@@ -25,10 +25,10 @@ UKF::UKF() {
   P_ = MatrixXd(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 0.2;
+  std_a_ = 1;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 0.2;
+  std_yawdd_ = 1;
   
   //DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
   // Laser measurement noise standard deviation position1 in m
@@ -309,4 +309,39 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   
   S += R;
 
+  VectorXd z = VectorXd(n_z);
+  z(0) = meas_package.raw_measurements_(0);
+  z(1) = meas_package.raw_measurements_(0);
+  z(2) = meas_package.raw_measurements_(0);
+
+  //create matrix for cross correlation
+  MatrixXd Tc = MatrixXd(n_x_, n_z);
+  Tc.fill(0.0);
+
+  for(int i=0; i<2*n_aug_+1; i++){
+    VectorXd z_diff = Zsig.col(i) - z_pred;
+    
+    //normalize the angle
+    z_diff(1) = atan2(sin(z_diff(1)), cos(z_diff(1)));
+
+    VectorXd x_diff = Xsig_pred_.col(i) - x_;
+    //normalize the angle
+    x_diff(1) = atan2(sin(x_diff(1)), cos(x_diff(1)));
+
+    Tc += weights_(i)*x_diff*z_diff.transpose();
+  } 
+
+  MatrixXd K = Tc * S.inverse();
+
+  VectorXd y = z - z_pred;
+  //normalize the angle
+  y(1) = atan2(sin(y(1)), cos(y(1)));
+
+  //state update
+  x_ += K * y;
+
+  //Covariance Matrix update
+  P_ -= K*S*K.transpose();
+
+  //cout<<"Z"<<endl<<z <<"X_"<<endl<< x_ <<"P_"<<endl<< P_;
 }
