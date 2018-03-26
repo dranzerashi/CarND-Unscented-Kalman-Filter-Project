@@ -210,10 +210,25 @@ void UKF::Prediction(double delta_t) {
 
   }
 
-
+  double weight_n = 0.5/(lambda_+n_aug_);
+  weights_.fill(weight_n);
+  weights_(0) = lambda_/(lambda_+n_aug_);
   
+  x_.fill(0.0);
 
+  for(int i = 0; i < 2*n_aug_+1; i++){
+    x_+= weights_(i)*Xsig_pred_.col(i);
+  }
 
+  P_.fill(0.0);
+  for(int i = 0; i<2*n_aug_+1; i++){
+    VectorXd diff = Xsig_pred_.col(i) - x_;
+    
+    //normalize the yaw
+    diff(3) = atan2(sin(diff(3)), cos(diff(3)));
+
+    P_ += weights_(i)*diff*diff.transpose();
+  }
 
 
 }
