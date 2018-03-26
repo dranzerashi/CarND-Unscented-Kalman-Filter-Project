@@ -164,8 +164,8 @@ void UKF::Prediction(double delta_t) {
   //Generate Augumented sigma predictions. 
   Xsig_aug.col(0) = x_aug;
   for(int i =0; i < n_aug_; i++){
-    Xsig_aug.col(i+1) = x_aug + sqrt(lambda_+n_aug_)*P_sqrt;
-    Xsig_aug.col(i+1+n_aug_) = x_aug - sqrt(lambda_+n_aug_)*P_sqrt;
+    Xsig_aug.col(i+1) = x_aug + sqrt(lambda_+n_aug_)*P_sqrt.col(i);
+    Xsig_aug.col(i+1+n_aug_) = x_aug - sqrt(lambda_+n_aug_)*P_sqrt.col(i);
   }
 
   //predict sigma points
