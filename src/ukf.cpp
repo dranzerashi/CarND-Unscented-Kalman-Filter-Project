@@ -28,7 +28,7 @@ UKF::UKF() {
   std_a_ = 1;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 1;
+  std_yawdd_ = 0.3;
   
   //DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
   // Laser measurement noise standard deviation position1 in m
@@ -83,12 +83,12 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     if(meas_package.sensor_type_ == MeasurementPackage::LASER){
       double px = meas_package.raw_measurements_(0);
       double py = meas_package.raw_measurements_(0);
-      x_ << px, py, 1.0, 0.0, 0.0;
+      x_ << px, py, 0.0, 0.0, 0.0;
       P_ <<  1.0, 0, 0, 0, 0,
             0, 1.0, 0, 0, 0,
-            0, 0, 1000, 0, 0,
-            0, 0, 0, 1000, 0,
-            0, 0, 0, 0, 1000;
+            0, 0, 1, 0, 0,
+            0, 0, 0, 1, 0,
+            0, 0, 0, 0, 1;
     }
     else if(meas_package.sensor_type_ == MeasurementPackage::RADAR){
       double rho = meas_package.raw_measurements_(0);
@@ -99,12 +99,12 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       double py = rho*sin(phi);
 
       //set velocity to radial velocity with higher uncertainity
-      x_ << px, py, rho_dot, 0.0, 0.0;
-      P_ <<  1.0, 0, 0, 0, 0,
-            0, 1.0, 0, 0, 0,
-            0, 0, 300, 0, 0,
-            0, 0, 0, 1000, 0,
-            0, 0, 0, 0, 1000;
+      x_ << px, py, 0.0, 0.0, 0.0;
+      P_ <<  std_radr_*std_radr_, 0, 0, 0, 0,
+            0, std_radr_*std_radr_, 0, 0, 0,
+            0, 0, 1, 0, 0,
+            0, 0, 0, 1, 0,
+            0, 0, 0, 0, 1;
     }
 
   time_us_ = meas_package.timestamp_;
@@ -112,7 +112,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   return;
   }
 
-  long delta_t = (meas_package.timestamp_ - time_us_) / 1000000.0;
+  double delta_t = (meas_package.timestamp_ - time_us_) / 1000000.0;
   time_us_ = meas_package.timestamp_;
 
   Prediction(delta_t);
@@ -311,8 +311,8 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   VectorXd z = VectorXd(n_z);
   z(0) = meas_package.raw_measurements_(0);
-  z(1) = meas_package.raw_measurements_(0);
-  z(2) = meas_package.raw_measurements_(0);
+  z(1) = meas_package.raw_measurements_(1);
+  z(2) = meas_package.raw_measurements_(2);
 
   //create matrix for cross correlation
   MatrixXd Tc = MatrixXd(n_x_, n_z);
